@@ -1,0 +1,8 @@
+* The best version of Python to use is 3.10
+* In Linux, you can run the following commands to swap to version 3.10:
+	conda create -n attention-tracker python=3.10
+	conda activate attention-tracker
+
+* To install requirements, run the following command once ur in ur conda environment (python 3.10)
+	pip install -r requirements.txt
+
