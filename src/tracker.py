@@ -5,15 +5,16 @@ import time
 
 class Tracker:
     
-    def __init__(self, gaze_weight=0.5, head_weight=0.5,
-        count_threshold=5, dur_threshold=3.0):
-
-        self.gaze_weight = gaze_weight
-        self.head_weight = head_weight
-
+    def __init__(self,head_count_thresh=1,
+        head_dur_thresh=3.0, gaze_count_thresh=1,
+        gaze_dur_thresh=5.0):
+        
         # number of lookaways/time (secs) before alert
-        self.count_threshold = count_threshold
-        self.dur_threshold = dur_threshold
+        self.head_count_thresh = head_count_thresh
+        self.head_dur_thresh = head_dur_thresh
+        self.gaze_count_thresh = gaze_count_thresh
+        self.gaze_dur_thresh = gaze_dur_thresh
+
         self.alert_reason = None
 
         #keeping track of gaze/head lookaway durations
@@ -75,16 +76,16 @@ class Tracker:
         if self.head_start is not None:
             head_duration += cur_time - self.head_start
 
-        gaze_count_score = min(gaze_count / self.count_threshold, 1.0)
-        head_count_score = min(head_count / self.count_threshold, 1.0)
+        gaze_count_score = min(gaze_count / self.gaze_count_thresh, 1.0)
+        head_count_score = min(head_count / self.head_count_thresh, 1.0)
         #calculating, normalizing duration score
-        gaze_duration_score = min(gaze_duration / self.dur_threshold, 1.0)
-        head_duration_score = min(head_duration / self.dur_threshold, 1.0)
+        gaze_duration_score = min(gaze_duration / self.gaze_dur_thresh, 1.0)
+        head_duration_score = min(head_duration / self.head_dur_thresh, 1.0)
         #avg out count and duration scores into one
         gaze_score = (gaze_count_score + gaze_duration_score) / 2
         head_score = (head_count_score + head_duration_score) / 2
         #apply weights
-        final_score = (gaze_score * self.gaze_weight) + (head_score * self.head_weight)
+        final_score = max(gaze_score, head_score)
         return final_score, gaze_score, head_score
 
     def should_alert(self, score_threshold=1.0):

@@ -6,3 +6,11 @@
 * To install requirements, run the following command once ur in ur conda environment (python 3.10)
 	pip install -r requirements.txt
 
+CURRENT LIST OF PROBLEMS TO FIX:
+* needs to be a minimal amount of time before closing your eyes counts as looking away, because blinking
+* for some reason whenever you look away for the first time the score jumps to 0.50
+* need to add a way to weigh certain direction. For example, if you're working with paper, you may not want to detect when you're looking down
+* option to not raise gaze score when eyes are closed
+* LAST THING IF I CAN PULL IT OFF:
+	- i want to get better accuracy for the iris by taking the head angle into consideration when determining
+	- if the user is looking away. I think this is possible, and I'll try to get it done tonight!

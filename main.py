@@ -17,8 +17,8 @@ def main():
     
     camera = Camera()
     head_pose = HeadPose()
-    gaze = Gaze(threshold=0.46)
-    tracker = Tracker(count_threshold=1, dur_threshold=2.0)
+    gaze = Gaze()
+    tracker = Tracker()
     alert = Alert()
 
     #setting up mediapipe stuff
@@ -51,8 +51,8 @@ def main():
             head_not_locked = abs(yaw) > YAW_THRESHOLD or abs(pitch) > PITCH_THRESHOLD
             
             #getting gaze ratios :o
-            left_ratio, right_ratio = gaze.get_gaze_ratio(landmarks, frame_width, frame_height)
-            gaze_not_locked = gaze.is_looking_away(left_ratio, right_ratio)
+            h_ratio, v_ratio = gaze.get_gaze_ratio(landmarks, frame_width, frame_height)
+            gaze_not_locked = gaze.is_looking_away(h_ratio, v_ratio)
             #passing info to tracker
             tracker.update(gaze_not_locked, head_not_locked)
 
