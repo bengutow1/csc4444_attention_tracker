@@ -8,6 +8,7 @@ from src.head_pose import HeadPose
 from src.gaze import Gaze
 from src.tracker import Tracker
 from src.alert import Alert
+from src.menu import Menu
 
 from src.head_pose import NOSE_TIP, CHIN, LEFT_EYE_CORNER, RIGHT_EYE_CORNER, LEFT_MOUTH_CORNER, RIGHT_MOUTH_CORNER
 from src.gaze import LEFT_EYE_INNER, LEFT_EYE_OUTER, RIGHT_EYE_INNER, RIGHT_EYE_OUTER, LEFT_EYE_TOP, LEFT_EYE_BOTTOM, RIGHT_EYE_TOP, RIGHT_EYE_BOTTOM, LEFT_IRIS, RIGHT_IRIS
@@ -41,8 +42,19 @@ DECAY_RATE = 10         #how much score decays per second
 GAZE_WEIGHT = 1.0       #weight parameter for gaze incremnts
 HEAD_WEIGHT = 1.0       #weight parameter for head incremnts
 
+WIN_NAME = "IT'S TIME TO LOCK IN"
+MENU_BTN = (5, 5, 120, 30)  # (x1, y1, x2, y2)
+
+def draw_menu_btn(frame, is_open):
+    x1, y1, x2, y2 = MENU_BTN
+    fill = (80, 80, 80) if is_open else (40, 40, 40)
+    cv2.rectangle(frame, (x1, y1), (x2, y2), fill, -1)
+    cv2.rectangle(frame, (x1, y1), (x2, y2), (180, 180, 180), 1)
+    cv2.putText(frame, "[M] Menu", (x1 + 6, y2 - 7),
+        cv2.FONT_HERSHEY_SIMPLEX, 0.45, (255, 255, 255), 1)
+
 def main():
-    
+
     camera = Camera()
     head_pose = HeadPose()
     gaze = Gaze(h_threshold=GAZE_H_THRESHOLD,
@@ -53,6 +65,13 @@ def main():
         head_weight=HEAD_WEIGHT, decay_rate=DECAY_RATE)
     alert = Alert()
 
+    # changeable config for values that live in main rather than in an object
+    config = {
+        'yaw_threshold': YAW_THRESHOLD,
+        'pitch_threshold': PITCH_THRESHOLD,
+    }
+    menu = Menu(tracker, gaze, config)
+
     #setting up mediapipe stuff
     mp_face_mesh = mp.solutions.face_mesh
     face_mesh = mp_face_mesh.FaceMesh(
@@ -62,12 +81,31 @@ def main():
         min_tracking_confidence=0.5
     )
 
+    cv2.namedWindow(WIN_NAME)
+
+    def on_mouse(event, x, y, flags, param):
+        if event == cv2.EVENT_LBUTTONDOWN:
+            bx1, by1, bx2, by2 = MENU_BTN
+            if bx1 <= x <= bx2 and by1 <= y <= by2:
+                menu.toggle()
+                if not menu.is_open:
+                    tracker.reset()
+
+    cv2.setMouseCallback(WIN_NAME, on_mouse)
+    menu.open()  # open settings on startup
+
     while True:
+        # track whether menu just closed this frame so we can reset the tracker
+        was_open = menu.is_open
+        menu.update()
+        if was_open and not menu.is_open:
+            tracker.reset()
+
         #reading camera frame
         success, frame = camera.read_frame()
         if not success:     #couldnt read frame, break loop
             break
-        
+
         frame_height, frame_width = frame.shape[0:2]
 
         #mediapipe needs RGB, converting:
@@ -77,16 +115,18 @@ def main():
         #when mediapipe picks up landmarks
         if results.multi_face_landmarks:
             landmarks = results.multi_face_landmarks[0].landmark
-            
+
             #getting head angles :>
             pitch, yaw, roll = head_pose.get_angles(landmarks, frame_width, frame_height)
-            head_not_locked = abs(yaw) > YAW_THRESHOLD or abs(pitch) > PITCH_THRESHOLD
-            
+            head_not_locked = abs(yaw) > config['yaw_threshold'] or abs(pitch) > config['pitch_threshold']
+
             #getting gaze ratios :o
             h_ratio, v_ratio = gaze.get_gaze_ratio(landmarks, frame_width, frame_height)
             gaze_not_locked = gaze.is_looking_away(h_ratio, v_ratio)
-            tracker.update(gaze_not_locked, head_not_locked)
-            
+
+            if not menu.is_open:
+                tracker.update(gaze_not_locked, head_not_locked)
+
             #displaying used mediapipe landmarks
             for idx in LANDMARKS:
                 landmark = results.multi_face_landmarks[0].landmark[idx]
@@ -100,33 +140,34 @@ def main():
 
             #final score debug msg
             score, pct = tracker.get_score()
-            cv2.putText(frame, f"LOCKED OUT: {int(score)} / {int(SCORE_LIMIT)} ({int(pct)}%) ",
-                (10, 90), cv2.FONT_HERSHEY_SIMPLEX, 0.7,
+            cv2.putText(frame, f"LOCKED OUT: {int(score)} / {int(tracker.limit)} ({int(pct)}%) ",
+                (10, 110), cv2.FONT_HERSHEY_SIMPLEX, 0.7,
                 (0, 255, 0), 2)
 
             #ARE THEY LOCKED?
-            if tracker.should_alert():
+            if not menu.is_open and tracker.should_alert():
                 alert.trigger(tracker.alert_reason)
                 tracker.reset()
-            
+
             #display tracking info on camera frame
             cv2.putText(frame, f"Yaw: {yaw:.1f} Pitch: {pitch:.1f}",
-                (10,30), cv2.FONT_HERSHEY_SIMPLEX, 0.7,
+                (10, 50), cv2.FONT_HERSHEY_SIMPLEX, 0.7,
                 (0, 255, 0), 2)
             cv2.putText(frame, f"Gaze: {'Away' if gaze_not_locked else 'Locked'}",
-                (10,60), cv2.FONT_HERSHEY_SIMPLEX, 0.7,
+                (10, 80), cv2.FONT_HERSHEY_SIMPLEX, 0.7,
                 (0, 255, 0), 2)
 
+        draw_menu_btn(frame, menu.is_open)
+
         #showing frame
-        cv2.imshow("IT'S TIME TO LOCK IN", frame)
-        
+        cv2.imshow(WIN_NAME, frame)
+
         #for now, quit whenever 'Q' is pressed
         if cv2.waitKey(1) & 0xFF == ord('q'):
             break
-        
+
     camera.release()
     face_mesh.close()
 
 if __name__ == "__main__":
     main()
-
