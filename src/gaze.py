@@ -22,10 +22,12 @@ class Gaze:
     #0.5 threshold is center.
     #still playing around, h_thresh is horizontal threshold
     #v_thresh is vertical threshold
-    def __init__(self, h_threshold=0.45, v_threshold=0.35):
+    def __init__(self, h_threshold=0.45, v_threshold=0.35, h_offset=0.0, v_offset=0.0):
         
         self.h_threshold = h_threshold
         self.v_threshold = v_threshold
+        self.h_offset = h_offset
+        self.v_offset = v_offset
     
     def get_gaze_ratio(self, landmarks, frame_width, frame_height):
         """returns h_ratio, v_ratio of how far from
@@ -77,7 +79,10 @@ class Gaze:
     
     #compares ratios to determine if eyes are looking away
     def is_looking_away(self, h_ratio, v_ratio):
-        h_not_locked = h_ratio < self.h_threshold or h_ratio > (1 - self.h_threshold)
-        v_not_locked = v_ratio < self.v_threshold or v_ratio > (1- self.v_threshold)
+        h_center = 0.5 + self.h_offset
+        v_center = 0.5 + self.v_offset
+
+        h_not_locked = h_ratio < (h_center - self.h_threshold) or h_ratio > (h_center + self.h_threshold)
+        v_not_locked = v_ratio < (v_center - self.v_threshold) or v_ratio > (v_center + self.v_threshold)
         return h_not_locked or v_not_locked
 

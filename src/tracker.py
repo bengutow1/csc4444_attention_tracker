@@ -5,115 +5,69 @@ import time
 
 class Tracker:
     
-    def __init__(self,head_count_thresh=1,
-        head_dur_thresh=3.0, gaze_count_thresh=1,
-        gaze_dur_thresh=5.0):
+    def __init__(self, limit=1000, decay_rate=10,
+        increment=100, gaze_weight=1.0,
+        head_weight=1.0):
+        """limit: score needed to trigger an alert
+            decay_rate: score lost per second
+            increment: base score gained per qualifying look
+            gaze_weight: how much gaze contributes (1.0 default)
+            head_weight: how much head contributes (1.0 default)
+        """
         
-        # number of lookaways/time (secs) before alert
-        self.head_count_thresh = head_count_thresh
-        self.head_dur_thresh = head_dur_thresh
-        self.gaze_count_thresh = gaze_count_thresh
-        self.gaze_dur_thresh = gaze_dur_thresh
+        self.limit = limit
+        self.decay_rate = decay_rate
+        self.increment = increment
+        self.gaze_weight = gaze_weight
+        self.head_weight = head_weight
 
+        self.score = 0.0
         self.alert_reason = None
+        self.last_update = time.time()
 
-        #keeping track of gaze/head lookaway durations
-        self.gaze_start = None
-        self.head_start = None
-        
-        #for score decay mechanism
-        self.window = 20      #only look at the last 20 secs
-        self.gaze_events = []   #list of (timestamp, dur)
-        self.head_events = []
-    
-    def update(self, is_gaze_away, is_head_away):
-        """Updates the lookaway counters based on booleans 
-            given from head_pose.py and gaze.py
+    def update(self, is_gaze_locked, is_head_locked):
+        """updates score based on gaze + head lookaway
+            status. Score also decays over time
         """
 
         cur_time = time.time()
-        
-        #updating gaze counters
-        if is_gaze_away:
-            if self.gaze_start is None:
-                self.gaze_start = cur_time
-        else:
-            if self.gaze_start is not None:
-                duration = cur_time - self.gaze_start
-                self.gaze_events.append((self.gaze_start, duration))
-                self.gaze_start = None
+        time_diff = cur_time - self.last_update
+        self.last_update = cur_time
 
-        #updating head counters
-        if is_head_away:
-            if self.head_start is None:
-                self.head_start = cur_time
-        else:
-            if self.head_start is not None:
-                duration = cur_time - self.head_start
-                self.head_events.append((self.head_start, duration))
-                self.head_start = None
+        #score decay
+        self.score = max(0.0, self.score - (self.decay_rate * time_diff))
 
-        #remove old events
-        self.gaze_events = [(t, d) for t, d in self.gaze_events if cur_time - t < self.window]
-        self.head_events = [(t, d) for t, d in self.head_events if cur_time - t < self.window]  
+        #incrementing the score and setting the alert_reason
+        if is_gaze_locked and is_head_locked:
+            self.score = min(self.limit,
+                self.score + (self.increment * max(self.gaze_weight, self.head_weight) * time_diff))
+            self.alert_reason = "both"
+        elif is_gaze_locked:
+            self.score = min(self.limit,
+                self.score + (self.increment * self.gaze_weight * time_diff))
+            self.alert_reason = "gaze"
+        elif is_head_locked:
+            self.score = min(self.limit,
+                self.score + (self.increment * self.head_weight * time_diff))
+            self.alert_reason = "head"
 
     def get_score(self):
-        """Calculates a score based on distraction frequency
-            and avg distraction duration. The final score
-            determines if the user will get alerted.
-            Returns final_score, gaze_score, head_score
+        """returns current score, percentage
         """
-        
-        #calculating, normalizing count score
-        gaze_count = len(self.gaze_events)
-        head_count = len(self.head_events)
-        gaze_duration = sum(d for _, d in self.gaze_events)
-        head_duration = sum(d for _, d in self.head_events)
-        #include current ongoing lookaways in score
-        cur_time = time.time()
-        if self.gaze_start is not None:
-            gaze_duration += cur_time - self.gaze_start
-        if self.head_start is not None:
-            head_duration += cur_time - self.head_start
 
-        gaze_count_score = min(gaze_count / self.gaze_count_thresh, 1.0)
-        head_count_score = min(head_count / self.head_count_thresh, 1.0)
-        #calculating, normalizing duration score
-        gaze_duration_score = min(gaze_duration / self.gaze_dur_thresh, 1.0)
-        head_duration_score = min(head_duration / self.head_dur_thresh, 1.0)
-        #avg out count and duration scores into one
-        gaze_score = (gaze_count_score + gaze_duration_score) / 2
-        head_score = (head_count_score + head_duration_score) / 2
-        #apply weights
-        final_score = max(gaze_score, head_score)
-        return final_score, gaze_score, head_score
+        pct = (self.score / self.limit) * 100
+        return self.score, pct
 
-    def should_alert(self, score_threshold=1.0):
-        """Determines based on the final score from 
-            get_score if an alert should be issued. 
-            Returns a boolean and updates self.alert_reason.
+    def should_alert(self):
+        """returns True if the score has hit the limit
         """
-        
-        final_score, gaze_score, head_score = self.get_score()
-        #checking score vs thresholds and determining cause
-        if final_score >= score_threshold:
-            if gaze_score >= head_score and head_score >= score_threshold:
-                self.alert_reason = "both"
-            elif gaze_score >= head_score:
-                self.alert_reason = "gaze"
-            else:
-                self.alert_reason = "head"
-            return True
-        return False
+
+        return self.score >= self.limit
 
     def reset(self):
-        """Resets the counters held by the tracker
+        """resets score
         """
-
-        self.gaze_start = None
-        self.head_start = None
-        self.gaze_events = []
-        self.head_events = []
+        self.score = 0.0
         self.alert_reason = None
+        self.last_update = time.time()
 
- 
