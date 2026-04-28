@@ -7,6 +7,8 @@ import pygame
 from PIL import Image, ImageTk
 import os
 
+AUTO_CLOSE_TIME = 5000      #in ms
+
 class Alert:
     
     def __init__(self):
@@ -52,6 +54,14 @@ class Alert:
         window.configure(bg="black")     #black background
         window.resizable(False, False)
 
+        #used to sync audio to alert window
+        def on_close():
+            pygame.mixer.music.stop()
+            window.destroy()
+
+        window.protocol("WM_DELETE_WINDOW", on_close)
+        window.after(AUTO_CLOSE_TIME, on_close)    
+
         #loading skeleton meme gif
         gif = Image.open(self.gif_path)
         frames = []
@@ -76,7 +86,7 @@ class Alert:
         msg_label.pack()
 
         #force close the window after 5 secs
-        window.after(5000, window.destroy)
+        window.after(AUTO_CLOSE_TIME, window.destroy)
 
         self.run_gif(gif_label, frames, 0, window)
         window.mainloop()
