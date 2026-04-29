@@ -11,7 +11,7 @@ from src.alert import Alert
 from src.menu import Menu
 
 from src.head_pose import NOSE_TIP, CHIN, LEFT_EYE_CORNER, RIGHT_EYE_CORNER, LEFT_MOUTH_CORNER, RIGHT_MOUTH_CORNER
-from src.gaze import LEFT_EYE_INNER, LEFT_EYE_OUTER, RIGHT_EYE_INNER, RIGHT_EYE_OUTER, LEFT_EYE_TOP, LEFT_EYE_BOTTOM, RIGHT_EYE_TOP, RIGHT_EYE_BOTTOM, LEFT_IRIS, RIGHT_IRIS
+from src.gaze import LEFT_EYE_INNER, LEFT_EYE_OUTER, RIGHT_EYE_INNER, RIGHT_EYE_OUTER, LEFT_EYE_TOP, LEFT_EYE_BOTTOM, RIGHT_EYE_TOP, RIGHT_EYE_BOTTOM, RIGHT_IRIS, LEFT_IRIS
 
 #landmark index constants
 LANDMARKS = [NOSE_TIP, CHIN, LEFT_EYE_CORNER,
@@ -27,8 +27,8 @@ PITCH_THRESHOLD = 30    #increase -> more vertical leniency
 #default eye ratio thresholds (eye positioning relative to
 #   eye corners & eyelids. A 0.50 ratio means the eye is in
 #   the center.
-GAZE_H_THRESHOLD = 0.45 #increase -> more horiz. leniency
-GAZE_V_THRESHOLD = 0.40 #increase -> more vertical leniency
+GAZE_H_THRESHOLD = 0.25 #increase -> more horiz. leniency
+GAZE_V_THRESHOLD = 0.25 #increase -> more vertical leniency
 #Gaze Offsets. helps adjust for natural eye resting position
 #   while locked in.
 #for horizontal offset: + = right, - = left
@@ -38,9 +38,15 @@ GAZE_V_OFFSET = 0.1     #offset b/c webcam usually above screen
 #score parameters!
 SCORE_LIMIT = 1000      #score needed for alert
 SCORE_INCREMENT = 150   #score increment per sec not locked
-DECAY_RATE = 10         #how much score decays per second
+DECAY_RATE = 20         #how much score decays per second
 GAZE_WEIGHT = 1.0       #weight parameter for gaze incremnts
 HEAD_WEIGHT = 1.0       #weight parameter for head incremnts
+#This parameter is used when the gaze is locked but the head
+#   is not. For example, if you don't want much pt gain when
+#   your head is turned away but your eyes are locked, lower
+#   this value so the score gain gets weighted (downwards).
+#   This setting should be between 0 and 1
+GAZE_DROWNOUT_FACTOR = 0.5  # decrease -> higher gaze priority    
 
 WIN_NAME = "IT'S TIME TO LOCK IN"
 MENU_BTN = (5, 5, 120, 30)  # (x1, y1, x2, y2)
@@ -62,7 +68,8 @@ def main():
         h_offset=GAZE_H_OFFSET, v_offset=GAZE_V_OFFSET)
     tracker = Tracker(limit=SCORE_LIMIT,
         increment=SCORE_INCREMENT, gaze_weight=GAZE_WEIGHT,
-        head_weight=HEAD_WEIGHT, decay_rate=DECAY_RATE)
+        head_weight=HEAD_WEIGHT, decay_rate=DECAY_RATE,
+        gaze_drownout=GAZE_DROWNOUT_FACTOR)
     alert = Alert()
 
     # changeable config for values that live in main rather than in an object
@@ -122,7 +129,7 @@ def main():
 
             #getting gaze ratios :o
             h_ratio, v_ratio = gaze.get_gaze_ratio(landmarks, frame_width, frame_height)
-            gaze_not_locked = gaze.is_looking_away(h_ratio, v_ratio)
+            gaze_not_locked = gaze.is_looking_away(h_ratio, v_ratio, yaw, pitch)
 
             if not menu.is_open:
                 tracker.update(gaze_not_locked, head_not_locked)
@@ -153,6 +160,7 @@ def main():
             cv2.putText(frame, f"Yaw: {yaw:.1f} Pitch: {pitch:.1f}",
                 (10, 50), cv2.FONT_HERSHEY_SIMPLEX, 0.7,
                 (0, 255, 0), 2)
+            
             cv2.putText(frame, f"Gaze: {'Away' if gaze_not_locked else 'Locked'}",
                 (10, 80), cv2.FONT_HERSHEY_SIMPLEX, 0.7,
                 (0, 255, 0), 2)

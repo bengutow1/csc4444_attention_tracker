@@ -17,6 +17,12 @@ RIGHT_EYE_BOTTOM = 374
 LEFT_IRIS = 468
 RIGHT_IRIS = 473
 
+#parameters we manually adjust for head angle-eye alignment
+#allows us to not increment when the head is turned but
+#   the user is still looking at the screen
+YAW_TUNED_FACTOR = 0.2
+PITCH_TUNED_FACTOR = 0.2
+
 class Gaze:
     
     #0.5 threshold is center.
@@ -33,7 +39,7 @@ class Gaze:
         """returns h_ratio, v_ratio of how far from
             the center the iris's are
         """
-        
+         
         #helper function for converting landmark vals into
         #   pixel coordinates
         def to_px(idx):
@@ -78,10 +84,9 @@ class Gaze:
         return h_ratio, v_ratio
     
     #compares ratios to determine if eyes are looking away
-    def is_looking_away(self, h_ratio, v_ratio):
-        h_center = 0.5 + self.h_offset
-        v_center = 0.5 + self.v_offset
-
+    def is_looking_away(self, h_ratio, v_ratio, yaw, pitch):
+        h_center = 0.5 + self.h_offset - (yaw / 90) * YAW_TUNED_FACTOR
+        v_center = 0.5 + self.v_offset + (pitch / 90) * PITCH_TUNED_FACTOR
         h_not_locked = h_ratio < (h_center - self.h_threshold) or h_ratio > (h_center + self.h_threshold)
         v_not_locked = v_ratio < (v_center - self.v_threshold) or v_ratio > (v_center + self.v_threshold)
         return h_not_locked or v_not_locked

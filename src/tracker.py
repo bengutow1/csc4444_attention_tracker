@@ -7,7 +7,7 @@ class Tracker:
     
     def __init__(self, limit=1000, decay_rate=10,
         increment=100, gaze_weight=1.0,
-        head_weight=1.0):
+        head_weight=1.0, gaze_drownout=0.5):
         """limit: score needed to trigger an alert
             decay_rate: score lost per second
             increment: base score gained per qualifying look
@@ -20,12 +20,13 @@ class Tracker:
         self.increment = increment
         self.gaze_weight = gaze_weight
         self.head_weight = head_weight
+        self.gaze_drownout = gaze_drownout
 
         self.score = 0.0
         self.alert_reason = None
         self.last_update = time.time()
 
-    def update(self, is_gaze_locked, is_head_locked):
+    def update(self, gaze_not_locked, head_not_locked):
         """updates score based on gaze + head lookaway
             status. Score also decays over time
         """
@@ -38,17 +39,17 @@ class Tracker:
         self.score = max(0.0, self.score - (self.decay_rate * time_diff))
 
         #incrementing the score and setting the alert_reason
-        if is_gaze_locked and is_head_locked:
+        if gaze_not_locked and head_not_locked:
             self.score = min(self.limit,
                 self.score + (self.increment * max(self.gaze_weight, self.head_weight) * time_diff))
             self.alert_reason = "both"
-        elif is_gaze_locked:
+        elif gaze_not_locked:
             self.score = min(self.limit,
                 self.score + (self.increment * self.gaze_weight * time_diff))
             self.alert_reason = "gaze"
-        elif is_head_locked:
+        elif head_not_locked:
             self.score = min(self.limit,
-                self.score + (self.increment * self.head_weight * time_diff))
+                self.score + (self.increment * self.head_weight * time_diff * self.gaze_drownout))
             self.alert_reason = "head"
 
     def get_score(self):
