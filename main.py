@@ -99,13 +99,6 @@ def draw_buttons(frame, is_open, btn_bounds):
     cv2.putText(frame, "[Q] Quit", (x1 + 6, qy2 - 7),
         cv2.FONT_HERSHEY_SIMPLEX, 0.45, (255, 255, 255), 1)
 
-def draw_stats_btn(frame):
-    x1, y1, x2, y2 = STATS_BTN
-    fill = (80, 80, 80)
-    cv2.rectangle(frame, (x1, y1), (x2, y2), fill, -1)
-    cv2.rectangle(frame, (x1, y1), (x2, y2), (180, 180, 180), 1)
-    cv2.putText(frame, "[S] Stats", (x1 + 6, y2 - 7),
-        cv2.FONT_HERSHEY_SIMPLEX, 0.45, (255, 255, 255), 1)
 
 def main():
 
