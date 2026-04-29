@@ -1,16 +1,19 @@
-
+#Ai was used sligtly for this file to help us understand how to make an interface with sliders on tkinter since we all have never
+#used that before. We went in our selves and changed values and the look of things for the interface design 
+#part to fit what we needed. The use of ai on this file helped teach us a new facet of python and 
+#how to make and design user interfaces for live windows.  
 
 #This file is for the settings menu
-# Opens a tkinter window like we do in main with sliders with text entries for every editable parameter
+#Opens a tkinter window like we do in main with sliders with text entries for every editable parameter
 
 import tkinter as tk
 
-# reusable colors for making the menu
+#reusable colors for making the menu
 BG = "#1e1e1e"
 FG = "white"
 
-# each entry: (key, display label, min value, max value, slider step size)
-# 'key' matches the attribute names on tracker/gaze so _apply() can write them back
+#each entry: (key, display label, min value, max value, slider step size)
+#'key' matches the attribute names on tracker/gaze so _apply() can write them back
 PARAMS = [
     ('yaw_threshold',    'Yaw Threshold (deg)',    0,    90,   1   ),
     ('pitch_threshold',  'Pitch Threshold (deg)',  0,    90,   1   ),
@@ -23,6 +26,7 @@ PARAMS = [
     ('decay_rate',       'Decay Rate',             1,    100,  1   ),
     ('gaze_weight',      'Gaze Weight',            0.0,  2.0,  0.05),
     ('head_weight',      'Head Weight',            0.0,  2.0,  0.05),
+    ('gaze_drownout',    'Gaze Drownout Factor',   0.0,  1.0,  0.05),
 ]
 
 class Menu:
@@ -31,15 +35,13 @@ class Menu:
         self.tracker = tracker
         self.gaze = gaze
         
-
         self.config = config #this stores the yaw and the pitch threshold values
 
         self.is_open = False
         self.window = None #the tkinter Tk window we need
         self._vars = {}  #dictionary of key -> tk.DoubleVar, one per parameter
 
-
-    def open(self):# opens/makes the menu window
+    def open(self):#opens/makes the menu window
         if self.is_open:
             return
         self.is_open = True
@@ -94,6 +96,7 @@ class Menu:
             'decay_rate':       self.tracker.decay_rate,
             'gaze_weight':      self.tracker.gaze_weight,
             'head_weight':      self.tracker.head_weight,
+            'gaze_drownout':    self.tracker.gaze_drownout,
         }
 
     def _apply(self):
@@ -112,6 +115,7 @@ class Menu:
         self.tracker.decay_rate        = v['decay_rate'].get()
         self.tracker.gaze_weight       = v['gaze_weight'].get()
         self.tracker.head_weight       = v['head_weight'].get()
+        self.tracker.gaze_drownout     = v['gaze_drownout'].get()
 
     def _build(self):
         """Creates the tkinter window and populates it with a row of
@@ -121,13 +125,13 @@ class Menu:
         self.window.title("Settings")
         self.window.configure(bg=BG)
         self.window.resizable(False, False)
-        # make the X button call our close() so _apply() still runs
+        #make the X button call our close() so _apply() still runs
         self.window.protocol("WM_DELETE_WINDOW", self.close)
 
-        # read current values so sliders start in the right position
+        #read current values so sliders start in the right position
         current = self._current_values()
 
-        # create one row of widgets per parameter
+        #create one row of widgets per parameter
         for row, (key, label, lo, hi, res) in enumerate(PARAMS):
             # DoubleVar is a tkinter variable that the slider and entry
             # both share — when one changes, the other updates automatically
@@ -135,7 +139,7 @@ class Menu:
             self._vars[key] = var
             self._add_row(row, label, lo, hi, res, var)
 
-        # single button at the bottom that applies and closes
+        #single button at the bottom that applies and closes
         tk.Button(
             self.window, text="Apply & Close",
             command=self.close,
@@ -150,15 +154,15 @@ class Menu:
             always show the same value.
         """
 
-        # column 0 — parameter name label
+        #column 0 — parameter name label
         tk.Label(
             self.window, text=label, fg=FG, bg=BG,
             font=("Arial", 10), width=20, anchor='w'
         ).grid(row=row, column=0, padx=12, pady=4, sticky='w')
 
-        # column 1 — slider (tk.Scale)
-        # resolution sets the step size; showvalue=False hides the
-        # built-in number display since the entry box already shows it
+        #column 1 — slider (tk.Scale)
+        #resolution sets the step size; showvalue=False hides the
+        #built-in number display since the entry box already shows it
         tk.Scale(
             self.window, variable=var,
             from_=lo, to=hi, orient='horizontal',
@@ -167,8 +171,8 @@ class Menu:
             troughcolor="#444", showvalue=False
         ).grid(row=row, column=1, padx=6)
 
-        # column 2 — text entry box
-        # textvariable=var links it to the same DoubleVar as the slider
+        #column 2 — text entry box
+        #textvariable=var links it to the same DoubleVar as the slider
         entry = tk.Entry(
             self.window, textvariable=var,
             width=7, bg="#333", fg=FG,
@@ -176,14 +180,14 @@ class Menu:
         )
         entry.grid(row=row, column=2, padx=12)
 
-        # validate what the user typed: clamp it to [lo, hi]
-        # triggers when the user presses Enter or clicks away from the box
+        #validate what the user typed: clamp it to [lo, hi]
+        #triggers when the user presses Enter or clicks away from the box
         def validate(event, v=var, lo=lo, hi=hi):
             try:
                 val = float(entry.get())
                 v.set(round(max(lo, min(hi, val)), 4))
             except ValueError:
-                pass    # if they typed something non-numeric, just leave it
+                pass #if they typed something non-numeric just leave it
 
         entry.bind('<Return>', validate)
         entry.bind('<FocusOut>', validate)
