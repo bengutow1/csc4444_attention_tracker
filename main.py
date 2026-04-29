@@ -9,6 +9,7 @@ from src.gaze import Gaze
 from src.tracker import Tracker
 from src.alert import Alert
 from src.menu import Menu
+from src.stats import SessionStats
 
 from src.head_pose import NOSE_TIP, CHIN, LEFT_EYE_CORNER, RIGHT_EYE_CORNER, LEFT_MOUTH_CORNER, RIGHT_MOUTH_CORNER
 from src.gaze import LEFT_EYE_INNER, LEFT_EYE_OUTER, RIGHT_EYE_INNER, RIGHT_EYE_OUTER, LEFT_EYE_TOP, LEFT_EYE_BOTTOM, RIGHT_EYE_TOP, RIGHT_EYE_BOTTOM, RIGHT_IRIS, LEFT_IRIS
@@ -85,6 +86,7 @@ def draw_buttons(frame, is_open, menu_bounds):
 
 def main():
 
+    stats = SessionStats()
     camera = Camera()
     head_pose = HeadPose()
     gaze = Gaze(h_threshold=GAZE_H_THRESHOLD,
