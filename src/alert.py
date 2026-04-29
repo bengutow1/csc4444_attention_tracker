@@ -47,8 +47,18 @@ class Alert:
         pygame.mixer.music.load(self.sound_path)
         pygame.mixer.music.play()
 
-        #setting up tkinter window
-        window = tk.Tk()
+        # Ensure a single root window exists
+        root = None
+        try:
+            root = tk._default_root
+        except Exception:
+            root = None
+        if not root:
+            root = tk.Tk()
+            root.withdraw()  # Hide the root window
+
+        # Create alert popup as Toplevel
+        window = tk.Toplevel(root)
         window.title("LOCK IN GANG!")
         window.geometry("600x500")
         window.configure(bg="black")     #black background
@@ -78,18 +88,19 @@ class Alert:
         #gif label - displays the gif
         gif_label = tk.Label(window, bg="black")
         gif_label.pack()
+        gif_label._frames = frames  # Prevent garbage collection
 
         #alert msg label - displays the msg
         msg_label = tk.Label(window, text=message, fg="red",
-            bg="black", font=("Arial", 20, "bold"),
-            wraplength=550)
+            bg="black", font=("Arial", 20, "bold"), wraplength=550)
         msg_label.pack()
 
         #force close the window after 5 secs
         window.after(AUTO_CLOSE_TIME, window.destroy)
 
         self.run_gif(gif_label, frames, 0, window)
-        window.mainloop()
+        window.grab_set()  # Make popup modal
+        window.wait_window()  # Pause until closed
     
     def run_gif(self, label, frames, index, window):
         """recursively cycles through gif frames &

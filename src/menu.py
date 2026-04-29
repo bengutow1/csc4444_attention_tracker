@@ -118,10 +118,17 @@ class Menu:
         self.tracker.gaze_drownout     = v['gaze_drownout'].get()
 
     def _build(self):
-        """Creates the tkinter window and populates it with a row of
-            widgets for each parameter, plus the Apply & Close button.
-        """
-        self.window = tk.Tk()
+        """Creates the tkinter window and populates it with a row of widgets for each parameter, plus the Apply & Close button."""
+        # Ensure a single root window exists
+        root = None
+        try:
+            root = tk._default_root
+        except Exception:
+            root = None
+        if not root:
+            root = tk.Tk()
+            root.withdraw()  # Hide the root window
+        self.window = tk.Toplevel(root)
         self.window.title("Settings")
         self.window.configure(bg=BG)
         self.window.resizable(False, False)

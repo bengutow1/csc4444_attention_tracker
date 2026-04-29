@@ -186,7 +186,13 @@ def main():
         rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         results = face_mesh.process(rgb_frame)
 
+
         #when mediapipe picks up landmarks
+        face_detected = False
+        gaze_not_locked = False
+        head_not_locked = False
+        yaw = 0.0
+        pitch = 0.0
         if results.multi_face_landmarks:
             landmarks = results.multi_face_landmarks[0].landmark
 
@@ -218,22 +224,22 @@ def main():
                 (10, 110), cv2.FONT_HERSHEY_SIMPLEX, 0.7,
                 (0, 255, 0), 2)
 
-            #ARE THEY LOCKED?
-            if not menu.is_open and tracker.should_alert():
-                alert.trigger(tracker.alert_reason)
-                tracker.reset()
             cv2.putText(frame, f"Yaw: {yaw:.1f} Pitch: {pitch:.1f}",
                 (10, 50), cv2.FONT_HERSHEY_SIMPLEX, 0.7,
                 (0, 255, 0), 2)
             
             cv2.putText(frame, f"Gaze: {'Away' if gaze_not_locked else 'Locked'}",
                 (10, 80), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
+
+            face_detected = True
+
         # Stats update
-        face_detected = bool(results.multi_face_landmarks)
         if face_detected:
             stats.frame_update(True, gaze_not_locked, head_not_locked)
         else:
             stats.frame_update(False, False, False)
+
+        # Unified alert logic: only trigger, record, and reset ONCE per alert
         if not menu.is_open and tracker.should_alert():
             alert.trigger(tracker.alert_reason)
             stats.record_alert()
