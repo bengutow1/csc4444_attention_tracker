@@ -50,17 +50,53 @@ HEAD_WEIGHT = 1.0       #weight parameter for head incremnts
 GAZE_DROWNOUT_FACTOR = 0.5  # decrease -> higher gaze priority    
 
 
+
 WIN_NAME = "IT'S TIME TO LOCK IN"
-MENU_BTN = (5, 5, 120, 30)  # (x1, y1, x2, y2)
-STATS_BTN = (130, 5, 245, 30)  # (x1, y1, x2, y2)
+BTN_X1, BTN_X2 = 5, 120   # left/right edges shared by all buttons
+BTN_H  = 25                # height of each button
+BTN_PAD = 10               # gap from bottom of frame
+BTN_GAP = 3                # gap between the buttons
 
+def draw_buttons(frame, is_open, btn_bounds):
+    """Draws [M] Menu, [S] Stats, and [Q] Quit in the bottom-left corner.
+        Writes each button's bounding box into btn_bounds[0], [1], [2]
+        so the mouse callback always has the current position.
+    """
+    h = frame.shape[0]
+    x1, x2 = BTN_X1, BTN_X2
 
-def draw_menu_btn(frame, is_open):
-    x1, y1, x2, y2 = MENU_BTN
+    # quit button at the very bottom
+    qy2 = h - BTN_PAD
+    qy1 = qy2 - BTN_H
+    # stats button above quit
+    sy2 = qy1 - BTN_GAP
+    sy1 = sy2 - BTN_H
+    # menu button above stats
+    my2 = sy1 - BTN_GAP
+    my1 = my2 - BTN_H
+
+    # store bounds for hit-testing
+    btn_bounds[0] = (x1, my1, x2, my2)  # menu
+    btn_bounds[1] = (x1, sy1, x2, sy2)  # stats
+    btn_bounds[2] = (x1, qy1, x2, qy2)  # quit
+
+    # Menu button
     fill = (80, 80, 80) if is_open else (40, 40, 40)
-    cv2.rectangle(frame, (x1, y1), (x2, y2), fill, -1)
-    cv2.rectangle(frame, (x1, y1), (x2, y2), (180, 180, 180), 1)
-    cv2.putText(frame, "[M] Menu", (x1 + 6, y2 - 7),
+    cv2.rectangle(frame, (x1, my1), (x2, my2), fill, -1)
+    cv2.rectangle(frame, (x1, my1), (x2, my2), (180, 180, 180), 1)
+    cv2.putText(frame, "[M] Menu", (x1 + 6, my2 - 7),
+        cv2.FONT_HERSHEY_SIMPLEX, 0.45, (255, 255, 255), 1)
+
+    # Stats button
+    cv2.rectangle(frame, (x1, sy1), (x2, sy2), (40, 40, 80), -1)
+    cv2.rectangle(frame, (x1, sy1), (x2, sy2), (180, 180, 180), 1)
+    cv2.putText(frame, "[S] Stats", (x1 + 6, sy2 - 7),
+        cv2.FONT_HERSHEY_SIMPLEX, 0.45, (255, 255, 255), 1)
+
+    # Quit button
+    cv2.rectangle(frame, (x1, qy1), (x2, qy2), (40, 40, 40), -1)
+    cv2.rectangle(frame, (x1, qy1), (x2, qy2), (180, 180, 180), 1)
+    cv2.putText(frame, "[Q] Quit", (x1 + 6, qy2 - 7),
         cv2.FONT_HERSHEY_SIMPLEX, 0.45, (255, 255, 255), 1)
 
 def draw_stats_btn(frame):
@@ -104,25 +140,36 @@ def main():
     cv2.namedWindow(WIN_NAME)
 
 
+    btn_bounds = [(0, 0, 0, 0), (0, 0, 0, 0), (0, 0, 0, 0)]  # menu, stats, quit
+
     def on_mouse(event, x, y, flags, param):
         if event == cv2.EVENT_LBUTTONDOWN:
-            # Menu button
-            bx1, by1, bx2, by2 = MENU_BTN
+            # menu
+            bx1, by1, bx2, by2 = btn_bounds[0]
             if bx1 <= x <= bx2 and by1 <= y <= by2:
                 menu.toggle()
                 if not menu.is_open:
                     tracker.reset()
-            # Stats button
-            sx1, sy1, sx2, sy2 = STATS_BTN
+                return
+            # stats
+            sx1, sy1, sx2, sy2 = btn_bounds[1]
             if sx1 <= x <= sx2 and sy1 <= y <= sy2:
                 stats.set_end_time_now()
                 stats.stats_popup()
+                return
+            # quit
+            qx1, qy1, qx2, qy2 = btn_bounds[2]
+            if qx1 <= x <= qx2 and qy1 <= y <= qy2:
+                camera.release()
+                face_mesh.close()
+                cv2.destroyAllWindows()
+                exit(0)
 
     cv2.setMouseCallback(WIN_NAME, on_mouse)
-    menu.open()  # open settings on startup
+    menu.open() #open settings on startup
 
     while True:
-        # track whether menu just closed this frame so we can reset the tracker
+        #track whether menu just closed this frame so we can reset the tracker
         was_open = menu.is_open
         menu.update()
         if was_open and not menu.is_open:
@@ -130,12 +177,12 @@ def main():
 
         #reading camera frame
         success, frame = camera.read_frame()
-        if not success:     #couldnt read frame, break loop
+        if not success:  #couldnt read frame, break loop
             break
 
         frame_height, frame_width = frame.shape[0:2]
 
-        #mediapipe needs RGB, converting:
+        #mediapipe needs RGB input but opencv gives BGR so we found we gotta convert it:
         rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         results = face_mesh.process(rgb_frame)
 
@@ -192,14 +239,14 @@ def main():
             stats.record_alert()
             tracker.reset()
 
-        draw_menu_btn(frame, menu.is_open)
-        draw_stats_btn(frame)
+        draw_buttons(frame, menu.is_open, btn_bounds)
+
+        #showing frame
         cv2.imshow(WIN_NAME, frame)
 
         key = cv2.waitKey(1) & 0xFF
         if key == ord('q'):
             break
-        # Keyboard shortcuts for menu and stats
         if key == ord('m'):
             menu.toggle()
             if not menu.is_open:
