@@ -49,8 +49,11 @@ HEAD_WEIGHT = 1.0       #weight parameter for head incremnts
 #   This setting should be between 0 and 1
 GAZE_DROWNOUT_FACTOR = 0.5  # decrease -> higher gaze priority    
 
+
 WIN_NAME = "IT'S TIME TO LOCK IN"
 MENU_BTN = (5, 5, 120, 30)  # (x1, y1, x2, y2)
+STATS_BTN = (130, 5, 245, 30)  # (x1, y1, x2, y2)
+
 
 def draw_menu_btn(frame, is_open):
     x1, y1, x2, y2 = MENU_BTN
@@ -58,6 +61,14 @@ def draw_menu_btn(frame, is_open):
     cv2.rectangle(frame, (x1, y1), (x2, y2), fill, -1)
     cv2.rectangle(frame, (x1, y1), (x2, y2), (180, 180, 180), 1)
     cv2.putText(frame, "[M] Menu", (x1 + 6, y2 - 7),
+        cv2.FONT_HERSHEY_SIMPLEX, 0.45, (255, 255, 255), 1)
+
+def draw_stats_btn(frame):
+    x1, y1, x2, y2 = STATS_BTN
+    fill = (80, 80, 80)
+    cv2.rectangle(frame, (x1, y1), (x2, y2), fill, -1)
+    cv2.rectangle(frame, (x1, y1), (x2, y2), (180, 180, 180), 1)
+    cv2.putText(frame, "[S] Stats", (x1 + 6, y2 - 7),
         cv2.FONT_HERSHEY_SIMPLEX, 0.45, (255, 255, 255), 1)
 
 def main():
@@ -92,13 +103,20 @@ def main():
 
     cv2.namedWindow(WIN_NAME)
 
+
     def on_mouse(event, x, y, flags, param):
         if event == cv2.EVENT_LBUTTONDOWN:
+            # Menu button
             bx1, by1, bx2, by2 = MENU_BTN
             if bx1 <= x <= bx2 and by1 <= y <= by2:
                 menu.toggle()
                 if not menu.is_open:
                     tracker.reset()
+            # Stats button
+            sx1, sy1, sx2, sy2 = STATS_BTN
+            if sx1 <= x <= sx2 and sy1 <= y <= sy2:
+                stats.set_end_time_now()
+                stats.stats_popup()
 
     cv2.setMouseCallback(WIN_NAME, on_mouse)
     menu.open()  # open settings on startup
@@ -157,24 +175,40 @@ def main():
             if not menu.is_open and tracker.should_alert():
                 alert.trigger(tracker.alert_reason)
                 tracker.reset()
-
-            #display tracking info on camera frame
             cv2.putText(frame, f"Yaw: {yaw:.1f} Pitch: {pitch:.1f}",
                 (10, 50), cv2.FONT_HERSHEY_SIMPLEX, 0.7,
                 (0, 255, 0), 2)
             
             cv2.putText(frame, f"Gaze: {'Away' if gaze_not_locked else 'Locked'}",
-                (10, 80), cv2.FONT_HERSHEY_SIMPLEX, 0.7,
-                (0, 255, 0), 2)
+                (10, 80), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
+        # Stats update
+        face_detected = bool(results.multi_face_landmarks)
+        if face_detected:
+            stats.frame_update(True, gaze_not_locked, head_not_locked)
+        else:
+            stats.frame_update(False, False, False)
+        if not menu.is_open and tracker.should_alert():
+            alert.trigger(tracker.alert_reason)
+            stats.record_alert()
+            tracker.reset()
 
         draw_menu_btn(frame, menu.is_open)
-
-        #showing frame
+        draw_stats_btn(frame)
         cv2.imshow(WIN_NAME, frame)
 
-        #for now, quit whenever 'Q' is pressed
-        if cv2.waitKey(1) & 0xFF == ord('q'):
+        key = cv2.waitKey(1) & 0xFF
+        if key == ord('q'):
             break
+        # Keyboard shortcuts for menu and stats
+        if key == ord('m'):
+            menu.toggle()
+            if not menu.is_open:
+                tracker.reset()
+        if key == ord('s'):
+            stats.set_end_time_now()
+            stats.stats_popup()
+
+
 
     camera.release()
     face_mesh.close()
